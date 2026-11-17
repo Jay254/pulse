@@ -1,0 +1,59 @@
+name: Claude
+
+# Summon Claude by writing @claude in an issue, issue comment, PR review, or PR review comment.
+# Hardened for a PUBLIC repo — see .relay/decisions and anthropics/claude-code-action docs/security.md.
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+permissions: {} # nothing by default; the job below grants only what it needs
+
+jobs:
+  claude:
+    # Defense in depth: only the repo owner can trigger Claude (on top of the action's own
+    # write-access check). Claude's own comments (actor = claude[bot]) can't re-trigger it.
+    if: >-
+      github.actor == 'Jay254' && (
+        (github.event_name == 'issues' &&
+          (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write # push to claude/* branches
+      pull-requests: write
+      issues: write
+      id-token: write # used by the action to obtain its GitHub App token
+      actions: read # lets Claude read CI results
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452 # v1.0.278
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Only the owner's and bots' comments are fed to Claude as context (limits injection
+          # from strangers commenting on a public repo). allowed_non_write_users is NOT set.
+          include_comments_by_actor: "Jay254,*[bot]"
+          # Git identity used for commits.
+          bot_name: Jay254
+          bot_id: "118709923"
+          additional_permissions: |
+            actions: read
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(uv sync:*),Bash(uv run pytest:*),Bash(uv run ruff:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git checkout:*)"
