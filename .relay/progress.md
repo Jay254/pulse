@@ -24,3 +24,10 @@ Append-only. Newest entry at the bottom. One entry per finished task.
 - Tests: 4 new tests using `httpx.MockTransport` (normal, no url, dead/deleted/non-story, limit); all pass.
 - Why: injectable `client` keeps tests offline; items are fetched sequentially for simplicity.
 - Next: arXiv collector can copy this shape; consider concurrent item fetches if slow.
+
+## 2026-11-17 — #2 arXiv collector (cs.LG, cs.AI, cs.CL)  (agent: cursor)
+- Did: added `pulse.collectors.arxiv.fetch_recent` querying the export Atom API once, sorted by submission date, and mapping papers to `Item`s.
+- Files: `src/pulse/collectors/arxiv.py`, `tests/collectors/test_arxiv.py`, `tests/fixtures/arxiv_atom.xml`, `.relay/handoff.md`, `.relay/progress.md`
+- Tests: fixture-based tests for field mapping, multi-author `"et al."`, title whitespace, and the single request's query and User-Agent; all pass offline.
+- Why: stdlib `ElementTree` avoids a feed parser dependency; an injectable `httpx.Client` matches the HN collector so tests never hit the network.
+- Next: RSS collector (`feeds.toml`), then SQLite storage.
