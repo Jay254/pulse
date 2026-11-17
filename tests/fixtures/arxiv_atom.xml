@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>ArXiv Query: search_query=cat:cs.LG</title>
+  <id>http://arxiv.org/api/query</id>
+  <updated>2024-03-01T00:00:00Z</updated>
+  <entry>
+    <id>http://arxiv.org/abs/2403.00001v1</id>
+    <published>2024-03-01T00:00:00Z</published>
+    <updated>2024-03-01T00:00:00Z</updated>
+    <title>Learning
+      with   Newlines
+    </title>
+    <summary>  A short abstract
+about learning.  </summary>
+    <author>
+      <name>Ada Lovelace</name>
+    </author>
+    <author>
+      <name>Alan Turing</name>
+    </author>
+    <author>
+      <name>Grace Hopper</name>
+    </author>
+    <link href="https://arxiv.org/pdf/2403.00001v1" rel="related" type="application/pdf" title="pdf"/>
+    <link href="https://arxiv.org/abs/2403.00001v1" rel="alternate" type="text/html"/>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2402.99999v2</id>
+    <published>2024-02-15T12:30:00Z</published>
+    <updated>2024-02-20T08:00:00Z</updated>
+    <title>  Single   Author
+Note </title>
+    <summary>Just one author.</summary>
+    <author>
+      <name>Grace Hopper</name>
+    </author>
+    <link href="https://arxiv.org/abs/2402.99999v2" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2402.99999v2" rel="related" type="application/pdf" title="pdf"/>
+  </entry>
+</feed>
