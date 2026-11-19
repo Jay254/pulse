@@ -1,0 +1,7 @@
+# Blogs collected by pulse.collectors.rss. Each entry is an RSS 2.0 or Atom feed URL.
+feeds = [
+    "https://simonwillison.net/atom/everything/",
+    "https://huggingface.co/blog/feed.xml",
+    "https://lilianweng.github.io/index.xml",
+    "https://karpathy.github.io/feed.xml",
+]

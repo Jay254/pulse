@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Atom Blog</title>
+  <entry>
+    <title>Atom post</title>
+    <id>tag:atom.example.com,2025:1</id>
+    <link rel="self" href="https://atom.example.com/feed/1"/>
+    <link rel="alternate" href="https://atom.example.com/posts/1"/>
+    <published>2025-02-01T08:30:00Z</published>
+    <updated>2025-02-02T00:00:00Z</updated>
+    <author><name>Grace Hopper</name></author>
+    <summary>Short summary.</summary>
+    <content type="html">Full content.</content>
+  </entry>
+  <entry>
+    <title>Updated only</title>
+    <id>https://atom.example.com/posts/2</id>
+    <updated>2025-01-15T00:00:00+00:00</updated>
+    <summary>Only a summary.</summary>
+  </entry>
+</feed>
