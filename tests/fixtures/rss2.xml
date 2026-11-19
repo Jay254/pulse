@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Example Blog</title>
+    <link>https://blog.example.com/</link>
+    <item>
+      <title>First
+        post</title>
+      <link>https://blog.example.com/first</link>
+      <description>Summary of the first post.</description>
+      <dc:creator>Ada Lovelace</dc:creator>
+      <pubDate>Mon, 03 Mar 2025 10:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>No date</title>
+      <link>https://blog.example.com/second</link>
+      <description>Second.</description>
+    </item>
+    <item>
+      <title>No link, skipped</title>
+    </item>
+  </channel>
+</rss>
