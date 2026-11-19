@@ -15,11 +15,12 @@ Run all three before you push. CI runs the same checks and must pass.
 - `src/pulse/models.py`: the `Item` type and `canonical_url()`, which gives the dedupe key.
 - `src/pulse/collectors/`: one module per source. Each accepts an optional `httpx.Client`.
 - `tests/`: mirrors `src/pulse/`. Saved API responses go in `tests/fixtures/`.
-- `.relay/`: notes shared between agents (see "Notes between agents").
+- `.relay/`: shared notes: conventions, task log, decisions, and ideas (see "Notes between
+  agents").
 
 ## Code rules
-1. One issue, one small PR. If you notice something unrelated, mention it in your log entry
-   instead of fixing it.
+1. One issue, one small PR. If you notice something unrelated, don't fix it: add an idea file
+   (see "Notes between agents") or mention it in your log entry.
 2. New behavior needs a test. Tests never touch the network: pass a client built on
    `httpx.MockTransport`.
 3. Add a dependency only when the standard library can't do the job, and give the reason in the
@@ -57,3 +58,5 @@ merge conflicts.
   convention or gotcha). Remove lines that are no longer true.
 - For a design decision that later work should follow, add
   `.relay/decisions/NNNN-short-title.md` with context, decision, and reason.
+- For an improvement that is out of scope for your issue, add one file to `.relay/ideas/` using
+  the template in `.relay/ideas/README.md`.
