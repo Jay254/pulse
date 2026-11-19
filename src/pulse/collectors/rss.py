@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from urllib.parse import urljoin
 
 import httpx
 
@@ -18,6 +19,7 @@ DEFAULT_FEEDS_PATH = Path(__file__).parents[3] / "feeds.toml"
 _ATOM = "{http://www.w3.org/2005/Atom}"
 _DC = "{http://purl.org/dc/elements/1.1/}"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}"
+_XML_BASE = "{http://www.w3.org/XML/1998/namespace}base"
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +50,17 @@ def _fetch_feeds(feeds: list[str], client: httpx.Client) -> list[Item]:
         try:
             resp = client.get(url, headers={"User-Agent": USER_AGENT})
             resp.raise_for_status()
-            items.extend(_parse_feed(resp.content))
+            items.extend(_parse_feed(resp.content, str(resp.url)))
         except (httpx.HTTPError, ET.ParseError, ValueError) as exc:
             logger.warning("Skipping feed %s: %s", url, exc)
     return items
 
 
-def _parse_feed(content: bytes) -> list[Item]:
+def _parse_feed(content: bytes, base_url: str = "") -> list[Item]:
     root = ET.fromstring(content)
     if root.tag == f"{_ATOM}feed":
-        entries = [_atom_item(entry) for entry in root.findall(f"{_ATOM}entry")]
+        feed_base = urljoin(base_url, root.get(_XML_BASE, ""))
+        entries = [_atom_item(entry, feed_base) for entry in root.findall(f"{_ATOM}entry")]
     elif root.tag == "rss":
         entries = [_rss_item(item) for item in root.findall("./channel/item")]
     else:
@@ -69,8 +72,17 @@ def _text(element: ET.Element, tag: str) -> str:
     return (element.findtext(tag) or "").strip()
 
 
+def _rss_guid_url(item: ET.Element) -> str:
+    """Return the GUID only when it is a permalink URL, else an empty string."""
+    guid = item.find("guid")
+    if guid is None or guid.get("isPermaLink", "true").lower() == "false":
+        return ""
+    value = (guid.text or "").strip()
+    return value if value.startswith(("http://", "https://")) else ""
+
+
 def _rss_item(item: ET.Element) -> Item | None:
-    url = _text(item, "link") or _text(item, "guid")
+    url = _text(item, "link") or _rss_guid_url(item)
     if not url:
         return None
     return Item(
@@ -83,26 +95,40 @@ def _rss_item(item: ET.Element) -> Item | None:
     )
 
 
-def _atom_item(entry: ET.Element) -> Item | None:
-    url = _atom_link(entry)
+def _atom_text(element: ET.Element, tag: str) -> str:
+    """Read an Atom text construct, keeping the text inside XHTML content."""
+    child = element.find(tag)
+    if child is None:
+        return ""
+    if child.get("type") == "xhtml":
+        return "".join(child.itertext()).strip()
+    return (child.text or "").strip()
+
+
+def _atom_item(entry: ET.Element, feed_base: str = "") -> Item | None:
+    url = _atom_link(entry, feed_base)
     if not url:
         return None
     published = _text(entry, f"{_ATOM}published") or _text(entry, f"{_ATOM}updated")
     return Item(
         source="rss",
         url=url,
-        title=" ".join(_text(entry, f"{_ATOM}title").split()),
-        text=_text(entry, f"{_ATOM}content") or _text(entry, f"{_ATOM}summary"),
+        title=" ".join(_atom_text(entry, f"{_ATOM}title").split()),
+        text=_atom_text(entry, f"{_ATOM}content") or _atom_text(entry, f"{_ATOM}summary"),
         author=_text(entry, f"{_ATOM}author/{_ATOM}name") or None,
         published_at=_parse_date(published, rfc2822=False),
     )
 
 
-def _atom_link(entry: ET.Element) -> str:
+def _atom_link(entry: ET.Element, feed_base: str = "") -> str:
+    """Return the alternate link resolved against xml:base and the feed URL."""
+    entry_base = urljoin(feed_base, entry.get(_XML_BASE, ""))
     for link in entry.findall(f"{_ATOM}link"):
-        if link.get("rel", "alternate") == "alternate" and link.get("href"):
-            return link.get("href", "").strip()
-    return _text(entry, f"{_ATOM}id")
+        href = (link.get("href") or "").strip()
+        if link.get("rel", "alternate") == "alternate" and href:
+            return urljoin(urljoin(entry_base, link.get(_XML_BASE, "")), href)
+    entry_id = _text(entry, f"{_ATOM}id")
+    return entry_id if entry_id.startswith(("http://", "https://")) else ""
 
 
 def _parse_date(raw: str, *, rfc2822: bool) -> datetime | None:
