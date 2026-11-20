@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import re
 import tomllib
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -21,7 +23,63 @@ _DC = "{http://purl.org/dc/elements/1.1/}"
 _CONTENT = "{http://purl.org/rss/1.0/modules/content/}"
 _XML_BASE = "{http://www.w3.org/XML/1998/namespace}base"
 
+_SKIPPED_TAGS = {"script", "style"}
+_BLOCK_TAGS = {
+    "p", "div", "br", "li", "ul", "ol", "tr", "td", "th", "table", "blockquote",
+    "pre", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "section", "article",
+}  # fmt: skip
+
+_INLINE_TAGS = {"a", "b", "i", "u", "em", "strong", "span", "code", "sub", "sup", "small", "mark"}
+_MARKUP_RE = re.compile(
+    r"</?(?:" + "|".join(sorted(_SKIPPED_TAGS | _BLOCK_TAGS | _INLINE_TAGS)) + r")\b[^>]*>",
+    re.IGNORECASE,
+)
+
 logger = logging.getLogger(__name__)
+
+
+class _TextExtractor(HTMLParser):
+    """Collect the text of an HTML fragment, ignoring script and style contents."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _SKIPPED_TAGS:
+            self._skip_depth += 1
+        elif tag in _BLOCK_TAGS:
+            self._parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _SKIPPED_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+        elif tag in _BLOCK_TAGS:
+            self._parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip_depth:
+            self._parts.append(data)
+
+    def text(self) -> str:
+        return " ".join("".join(self._parts).split())
+
+
+def html_to_text(value: str) -> str:
+    """Convert an HTML fragment to plain text with entities decoded and whitespace collapsed."""
+    parser = _TextExtractor()
+    parser.feed(value)
+    parser.close()
+    return parser.text()
+
+
+def _clean_title(title: str) -> str:
+    """Collapse whitespace, and strip tags only when the title contains known HTML tags.
+
+    Literal angle brackets such as `Vec<T>` are kept.
+    """
+    return html_to_text(title) if _MARKUP_RE.search(title) else " ".join(title.split())
 
 
 def load_feeds(path: Path | str = DEFAULT_FEEDS_PATH) -> list[str]:
@@ -88,21 +146,29 @@ def _rss_item(item: ET.Element) -> Item | None:
     return Item(
         source="rss",
         url=url,
-        title=" ".join(_text(item, "title").split()),
-        text=_text(item, f"{_CONTENT}encoded") or _text(item, "description"),
+        title=_clean_title(_text(item, "title")),
+        text=html_to_text(_text(item, f"{_CONTENT}encoded") or _text(item, "description")),
         author=_text(item, f"{_DC}creator") or _text(item, "author") or None,
         published_at=_parse_date(_text(item, "pubDate"), rfc2822=True),
     )
 
 
 def _atom_text(element: ET.Element, tag: str) -> str:
-    """Read an Atom text construct, keeping the text inside XHTML content."""
+    """Read an Atom text construct as plain text, honoring its `type`.
+
+    `text` (the default) is literal, `xhtml` is already parsed into elements, and `html`
+    holds escaped markup that needs converting.
+    """
     child = element.find(tag)
     if child is None:
         return ""
-    if child.get("type") == "xhtml":
-        return "".join(child.itertext()).strip()
-    return (child.text or "").strip()
+    kind = (child.get("type") or "text").lower()
+    if kind == "xhtml":
+        return " ".join("".join(child.itertext()).split())
+    value = (child.text or "").strip()
+    if kind in ("html", "text/html"):
+        return html_to_text(value)
+    return " ".join(value.split())
 
 
 def _atom_item(entry: ET.Element, feed_base: str = "") -> Item | None:
@@ -113,7 +179,7 @@ def _atom_item(entry: ET.Element, feed_base: str = "") -> Item | None:
     return Item(
         source="rss",
         url=url,
-        title=" ".join(_atom_text(entry, f"{_ATOM}title").split()),
+        title=_atom_text(entry, f"{_ATOM}title"),
         text=_atom_text(entry, f"{_ATOM}content") or _atom_text(entry, f"{_ATOM}summary"),
         author=_text(entry, f"{_ATOM}author/{_ATOM}name") or None,
         published_at=_parse_date(published, rfc2822=False),
