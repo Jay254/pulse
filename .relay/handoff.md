@@ -9,6 +9,8 @@ lives in the open issues and in `.relay/log/`.
 - Collectors live in `src/pulse/collectors/<source>.py`, expose one public `fetch_*` function,
   return `list[Item]`, and accept an optional `httpx.Client`.
 - Tests use `httpx.MockTransport` and saved fixtures in `tests/fixtures/`; no network access.
+- Generated files (`pulse.db`, `digests/`) live on the `data` branch, written only by
+  `.github/workflows/digest.yml`. Never commit them to `main`.
 
 ## Gotchas
 - arXiv titles are whitespace-collapsed; a paper with more than one author is stored as

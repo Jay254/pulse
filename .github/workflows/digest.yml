@@ -1,0 +1,47 @@
+name: Digest
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 07:00 EAT
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --locked
+
+      # The database and past digests live on the `data` branch (see .relay/decisions/0002).
+      - name: Restore data branch
+        run: |
+          mkdir -p state
+          if git ls-remote --exit-code --heads origin data > /dev/null; then
+            git fetch --depth=1 origin data
+            git archive FETCH_HEAD | tar -x -C state
+          fi
+
+      - run: uv run pulse digest --db state/pulse.db --out state/digests
+
+      # Replace the data branch with one commit holding the current files, so its history
+      # does not grow by one database copy per day.
+      - name: Save data branch
+        env:
+          GIT_INDEX_FILE: ${{ runner.temp }}/data.index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git --work-tree=state add -A
+          tree="$(git write-tree)"
+          commit="$(git commit-tree "$tree" -m "Update data for $(date -u +%F)")"
+          git push --force origin "$commit:refs/heads/data"

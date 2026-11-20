@@ -1,7 +1,7 @@
 name: Claude
 
 # Summon Claude by writing @claude in an issue, issue comment, PR review, or PR review comment.
-# Hardened for a PUBLIC repo — see .relay/decisions and anthropics/claude-code-action docs/security.md.
+# Hardened for a PUBLIC repo; see .relay/decisions and anthropics/claude-code-action docs/security.md.
 
 on:
   issues:
