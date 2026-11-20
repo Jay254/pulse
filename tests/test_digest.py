@@ -144,9 +144,9 @@ def test_run_digest_same_day_rerun_keeps_file_and_sent_state(tmp_path):
     items = [item("a", 3), item("b", 2), item("c", 1)]
     day = date(2026, 11, 20)
     with Store(tmp_path / "t.db") as store:
-        path = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2)
+        path = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2, NOW)
         first = path.read_text()
-        again = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2)
+        again = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2, NOW)
         assert again == path
         assert path.read_text() == first
         next_day = run_digest(
