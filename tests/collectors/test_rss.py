@@ -7,6 +7,7 @@ import httpx
 from pulse.collectors.rss import DEFAULT_FEEDS_PATH, _parse_feed, fetch_feeds, load_feeds
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
+HTML_URL = "https://html.example.com/feed.xml"
 RSS_URL = "https://blog.example.com/feed.xml"
 ATOM_URL = "https://atom.example.com/atom.xml"
 BAD_URL = "https://down.example.com/feed.xml"
@@ -18,6 +19,8 @@ def make_client() -> httpx.Client:
         url = str(request.url)
         if url == RSS_URL:
             return httpx.Response(200, content=(FIXTURES / "rss2.xml").read_bytes())
+        if url == HTML_URL:
+            return httpx.Response(200, content=(FIXTURES / "rss_html.xml").read_bytes())
         if url == ATOM_URL:
             return httpx.Response(200, content=(FIXTURES / "blog_atom.xml").read_bytes())
         if url == JUNK_URL:
@@ -113,3 +116,16 @@ def test_rss_guid_only_used_when_permalink():
     <item><guid>https://a.example/p</guid></item>
     </channel></rss>"""
     assert [i.url for i in _parse_feed(xml)] == ["https://a.example/p"]
+
+
+def test_strips_html_from_text():
+    first, second = fetch_feeds([HTML_URL], client=make_client())
+    assert first.title == "Token fraud"
+    assert first.text == (
+        "Token fraud Claire Vo runs Tom & Jerry <3 \u00a9 2025. Second paragraph with bold text."
+    )
+    assert "<" not in first.text.replace("<3", "")
+    assert "alert" not in first.text
+    assert "color" not in first.text
+    assert second.title == "Plain title & more"
+    assert second.text == "Atom-like summary."
