@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
@@ -67,6 +68,26 @@ def test_collect_skips_failing_collector():
         raise httpx.ConnectError("down")
 
     assert [i.title for i in collect({"bad": boom, "ok": lambda: [item("a")]})] == ["a"]
+
+
+def test_collect_skips_collector_with_malformed_xml():
+    def bad_xml():
+        raise ET.ParseError("not well-formed")
+
+    assert [i.title for i in collect({"arxiv": bad_xml, "ok": lambda: [item("a")]})] == ["a"]
+
+
+def test_run_digest_same_day_rerun_keeps_file_and_sent_state(tmp_path):
+    items = [item("a", 3), item("b", 2), item("c", 1)]
+    day = date(2026, 11, 20)
+    with Store(tmp_path / "t.db") as store:
+        path = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2)
+        first = path.read_text()
+        again = run_digest(store, {"x": lambda: items}, tmp_path / "out", day, 2)
+        assert again == path
+        assert path.read_text() == first
+        next_day = run_digest(store, {"x": lambda: items}, tmp_path / "out", date(2026, 11, 21), 2)
+        assert "[a]" in next_day.read_text()
 
 
 def test_run_digest_writes_file_and_marks_sent(tmp_path):

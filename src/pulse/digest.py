@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import xml.etree.ElementTree as ET
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -80,7 +81,7 @@ def collect(collectors: dict[str, Collector]) -> list[Item]:
     for name, fetch in collectors.items():
         try:
             items.extend(fetch())
-        except (httpx.HTTPError, ValueError, OSError) as exc:
+        except (httpx.HTTPError, ET.ParseError, ValueError, OSError) as exc:
             log.warning("collector %s failed: %s", name, exc)
     return items
 
@@ -92,11 +93,17 @@ def run_digest(
     day: date | None = None,
     limit: int = DEFAULT_LIMIT,
 ) -> Path:
-    """Collect, store, pick the top `limit` unsent items, write the file, mark them sent."""
+    """Collect, store, pick the top `limit` unsent items, write the file, mark them sent.
+
+    If the file for `day` already exists, return it without collecting or marking anything.
+    """
     day = day or datetime.now(UTC).date()
+    path = Path(out_dir) / f"{day.isoformat()}.md"
+    if path.exists():
+        log.info("digest for %s already exists, skipping", day.isoformat())
+        return path
     store.upsert(collect(collectors))
     picked = rank(store.unsent(-1))[:limit]
-    path = Path(out_dir) / f"{day.isoformat()}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(picked, day), encoding="utf-8")
     store.mark_sent(item.key for item in picked)
