@@ -113,7 +113,8 @@ class Store:
         """Items not yet sent, newest first.
 
         Newest is by `published_at`, falling back to `first_seen_at`. The returned
-        `Item.source` is the first source that saw the item.
+        `Item.source` is the first source that saw the item and `Item.sources` lists all.
+        A negative `limit` returns every unsent item.
         """
         rows = self._db.execute(
             "SELECT * FROM items WHERE sent_at IS NULL"
@@ -123,6 +124,7 @@ class Store:
         return [
             Item(
                 source=json.loads(r["sources"])[0],
+                sources=tuple(json.loads(r["sources"])),
                 url=r["url"],
                 title=r["title"],
                 text=r["text"],

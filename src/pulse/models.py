@@ -37,6 +37,8 @@ class Item:
     author: str | None = None
     published_at: datetime | None = None
     fetched_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # Every source that saw it; filled in by the store and ignored in equality.
+    sources: tuple[str, ...] = field(default=(), compare=False)
 
     @property
     def key(self) -> str:
