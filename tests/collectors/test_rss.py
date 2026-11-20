@@ -156,3 +156,12 @@ def test_atom_text_types_are_respected():
     assert two.title == "Marked up & done"
     assert two.text == "Hello there"
     assert three.text == "Keep this text"
+
+
+def test_rss_title_keeps_literal_angle_brackets():
+    feed = b"""<rss version="2.0"><channel><item>
+      <title>Understanding Vec&lt;T&gt; in Rust</title>
+      <link>https://e.example.com/a</link>
+    </item></channel></rss>"""
+    (item,) = _parse_feed(feed)
+    assert item.title == "Understanding Vec<T> in Rust"

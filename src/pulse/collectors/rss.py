@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import tomllib
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
@@ -27,6 +28,12 @@ _BLOCK_TAGS = {
     "p", "div", "br", "li", "ul", "ol", "tr", "td", "th", "table", "blockquote",
     "pre", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "section", "article",
 }  # fmt: skip
+
+_INLINE_TAGS = {"a", "b", "i", "u", "em", "strong", "span", "code", "sub", "sup", "small", "mark"}
+_MARKUP_RE = re.compile(
+    r"</?(?:" + "|".join(sorted(_SKIPPED_TAGS | _BLOCK_TAGS | _INLINE_TAGS)) + r")\b[^>]*>",
+    re.IGNORECASE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +75,11 @@ def html_to_text(value: str) -> str:
 
 
 def _clean_title(title: str) -> str:
-    """Collapse whitespace, and strip tags only when the title contains any."""
-    return html_to_text(title) if "<" in title else " ".join(title.split())
+    """Collapse whitespace, and strip tags only when the title contains known HTML tags.
+
+    Literal angle brackets such as `Vec<T>` are kept.
+    """
+    return html_to_text(title) if _MARKUP_RE.search(title) else " ".join(title.split())
 
 
 def load_feeds(path: Path | str = DEFAULT_FEEDS_PATH) -> list[str]:
