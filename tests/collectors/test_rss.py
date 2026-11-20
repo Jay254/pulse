@@ -129,3 +129,30 @@ def test_strips_html_from_text():
     assert "color" not in first.text
     assert second.title == "Plain title & more"
     assert second.text == "Atom-like summary."
+
+
+def test_atom_text_types_are_respected():
+    xml = b"""<feed xmlns="http://www.w3.org/2005/Atom" xmlns:x="http://www.w3.org/1999/xhtml">
+    <entry>
+      <title>Literal &lt;b&gt;tags&lt;/b&gt;</title>
+      <link href="https://a.example/1"/>
+      <content type="text">Write &lt;b&gt;bold&lt;/b&gt; literally</content>
+    </entry>
+    <entry>
+      <title type="html">&lt;i&gt;Marked&lt;/i&gt; up &amp;amp; done</title>
+      <link href="https://a.example/2"/>
+      <summary type="html">&lt;p&gt;Hello &lt;b&gt;there&lt;/b&gt;&lt;/p&gt;</summary>
+    </entry>
+    <entry>
+      <title>Xhtml</title>
+      <link href="https://a.example/3"/>
+      <content type="xhtml"><x:div>Keep <x:b>this</x:b>
+        text</x:div></content>
+    </entry>
+    </feed>"""
+    one, two, three = _parse_feed(xml)
+    assert one.title == "Literal <b>tags</b>"
+    assert one.text == "Write <b>bold</b> literally"
+    assert two.title == "Marked up & done"
+    assert two.text == "Hello there"
+    assert three.text == "Keep this text"

@@ -144,13 +144,21 @@ def _rss_item(item: ET.Element) -> Item | None:
 
 
 def _atom_text(element: ET.Element, tag: str) -> str:
-    """Read an Atom text construct, keeping the text inside XHTML content."""
+    """Read an Atom text construct as plain text, honoring its `type`.
+
+    `text` (the default) is literal, `xhtml` is already parsed into elements, and `html`
+    holds escaped markup that needs converting.
+    """
     child = element.find(tag)
     if child is None:
         return ""
-    if child.get("type") == "xhtml":
-        return "".join(child.itertext()).strip()
-    return (child.text or "").strip()
+    kind = (child.get("type") or "text").lower()
+    if kind == "xhtml":
+        return " ".join("".join(child.itertext()).split())
+    value = (child.text or "").strip()
+    if kind in ("html", "text/html"):
+        return html_to_text(value)
+    return " ".join(value.split())
 
 
 def _atom_item(entry: ET.Element, feed_base: str = "") -> Item | None:
@@ -161,10 +169,8 @@ def _atom_item(entry: ET.Element, feed_base: str = "") -> Item | None:
     return Item(
         source="rss",
         url=url,
-        title=_clean_title(_atom_text(entry, f"{_ATOM}title")),
-        text=html_to_text(
-            _atom_text(entry, f"{_ATOM}content") or _atom_text(entry, f"{_ATOM}summary")
-        ),
+        title=_atom_text(entry, f"{_ATOM}title"),
+        text=_atom_text(entry, f"{_ATOM}content") or _atom_text(entry, f"{_ATOM}summary"),
         author=_text(entry, f"{_ATOM}author/{_ATOM}name") or None,
         published_at=_parse_date(published, rfc2822=False),
     )
