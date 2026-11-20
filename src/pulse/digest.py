@@ -22,6 +22,11 @@ _LINE_MAX = 200
 # Each extra source that saw an item makes it rank as if it were this much newer.
 _MULTI_SOURCE_BOOST = timedelta(hours=24)
 
+# Items older than this are never picked; they stay in the store.
+MAX_AGE = timedelta(days=3)
+# Digest slots per source, in fill order. Unused slots go to the best remaining items.
+SLOTS: dict[str, int] = {"hn": 4, "arxiv": 3, "rss": 3}
+
 Collector = Callable[[], list[Item]]
 
 
@@ -50,6 +55,45 @@ def rank(items: Sequence[Item]) -> list[Item]:
         return _when(item) + _MULTI_SOURCE_BOOST * extra
 
     return sorted(items, key=score, reverse=True)
+
+
+def select(
+    items: Sequence[Item],
+    now: datetime,
+    limit: int = DEFAULT_LIMIT,
+    slots: dict[str, int] | None = None,
+    max_age: timedelta = MAX_AGE,
+) -> list[Item]:
+    """Pick up to `limit` items: drop old ones, give each source its slots, fill the rest.
+
+    An item counts once, in the slot of its first source (`Item.source`). Slots a source
+    cannot fill go to the best remaining items of any source. Order within a source and
+    in the fill comes from `rank`; the final list is ranked as a whole.
+    """
+    slots = SLOTS if slots is None else slots
+    cutoff = now - max_age
+    seen: set[str] = set()
+    fresh: list[Item] = []
+    for item in items:
+        if item.key in seen or _when(item) < cutoff:
+            continue
+        seen.add(item.key)
+        fresh.append(item)
+
+    ranked = rank(fresh)
+    picked: list[Item] = []
+    chosen: set[str] = set()
+    for source, count in slots.items():
+        room = min(count, limit - len(picked))
+        for item in [i for i in ranked if i.source == source][: max(room, 0)]:
+            picked.append(item)
+            chosen.add(item.key)
+    for item in ranked:
+        if len(picked) >= limit:
+            break
+        if item.key not in chosen:
+            picked.append(item)
+    return rank(picked)
 
 
 def _one_line(text: str) -> str:
@@ -92,8 +136,9 @@ def run_digest(
     out_dir: Path | str,
     day: date | None = None,
     limit: int = DEFAULT_LIMIT,
+    now: datetime | None = None,
 ) -> Path:
-    """Collect, store, pick the top `limit` unsent items, write the file, mark them sent.
+    """Collect, store, pick up to `limit` unsent items, write the file, mark them sent.
 
     If the file for `day` already exists, return it without collecting or marking anything.
     """
@@ -103,7 +148,7 @@ def run_digest(
         log.info("digest for %s already exists, skipping", day.isoformat())
         return path
     store.upsert(collect(collectors))
-    picked = rank(store.unsent(-1))[:limit]
+    picked = select(store.unsent(-1), now or datetime.now(UTC), limit)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(picked, day), encoding="utf-8")
     store.mark_sent(item.key for item in picked)
