@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>HTML Blog</title>
+    <link>https://html.example.com/</link>
+    <item>
+      <title>&lt;b&gt;Token&lt;/b&gt; fraud</title>
+      <link>https://html.example.com/one</link>
+      <content:encoded><![CDATA[<p><strong><a href="https://html.example.com/one">Token fraud</a></strong></p>
+<style>p { color: red; }</style>
+<p>Claire Vo runs <a href="https://x.example.com">Tom &amp; Jerry</a> &lt;3 &copy; 2025.</p>
+<script>alert("hi");</script>
+<div>Second paragraph with <em>bold <b>text</b></em>.</div>]]></content:encoded>
+    </item>
+    <item>
+      <title>Plain title &amp; more</title>
+      <link>https://html.example.com/two</link>
+      <description>Atom-like summary.</description>
+    </item>
+  </channel>
+</rss>
